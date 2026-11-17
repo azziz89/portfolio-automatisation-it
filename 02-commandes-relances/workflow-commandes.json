@@ -1,0 +1,245 @@
+{
+  "name": "PORTFOLIO 2 - Commandes et relances",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Commande client (DEMO)",
+        "formDescription": "Formulaire de demonstration - donnees fictives uniquement",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Nom du client",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Téléphone"
+            },
+            {
+              "fieldLabel": "Produit",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Quantité",
+              "fieldType": "number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Prix unitaire (Ar)",
+              "fieldType": "number",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Formulaire de commande",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "0b95425e-7bc7-4eac-b4fc-78745d8466d3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst qte = Number(d['Quantité']);\nconst pu = Number(d['Prix unitaire (Ar)']);\nconst iso = new Date().toISOString().slice(0, 10);\nconst num = 'CMD-' + iso.replace(/-/g, '') + '-' + String(Math.floor(Math.random() * 9000) + 1000);\nreturn [{ json: {\n  Numero: num, Date: iso, Client: d['Nom du client'], Telephone: d['Téléphone'] || '',\n  Produit: d['Produit'], Quantite: qte, PrixUnitaire: pu, Total: qte * pu, Statut: 'Impaye'\n} }];"
+      },
+      "name": "Calculer la commande",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "COLLEZ_ID_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Commandes",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "name": "Ajouter dans Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botVOTRE_TOKEN/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"VOTRE_CHAT_ID\", text: '🛒 Nouvelle commande ' + $('Calculer la commande').item.json.Numero + '\\nClient : ' + $('Calculer la commande').item.json.Client + '\\nProduit : ' + $('Calculer la commande').item.json.Produit + ' x ' + $('Calculer la commande').item.json.Quantite + '\\nTotal : ' + Number($('Calculer la commande').item.json.Total).toLocaleString('fr-FR') + ' Ar' }) }}",
+        "options": {}
+      },
+      "name": "Notifier le patron",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Relances chaque jour 08h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "COLLEZ_ID_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Commandes",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire les commandes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst today = new Date();\nconst days = (r) => Math.floor((today - new Date(r.Date)) / 86400000);\nconst late = rows.filter(r => String(r.Statut || '').toLowerCase().startsWith('impay') && r.Date && days(r) >= 7);\nif (!late.length) return [];\nconst total = late.reduce((s, r) => s + Number(r.Total || 0), 0);\nconst lines = late.map(r => '• ' + r.Numero + ' - ' + r.Client + ' (' + r.Telephone + ') : ' + Number(r.Total).toLocaleString('fr-FR') + ' Ar, ' + days(r) + ' jours');\nreturn [{ json: { message: '⏰ ' + late.length + ' facture(s) impayee(s) a relancer\\nTotal du : ' + total.toLocaleString('fr-FR') + ' Ar\\n\\n' + lines.join('\\n') } }];"
+      },
+      "name": "Trouver les impayes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botVOTRE_TOKEN/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"VOTRE_CHAT_ID\", text: $json.message }) }}",
+        "options": {}
+      },
+      "name": "Relance Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Formulaire de commande": {
+      "main": [
+        [
+          {
+            "node": "Calculer la commande",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculer la commande": {
+      "main": [
+        [
+          {
+            "node": "Ajouter dans Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ajouter dans Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Notifier le patron",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Relances chaque jour 08h": {
+      "main": [
+        [
+          {
+            "node": "Lire les commandes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les commandes": {
+      "main": [
+        [
+          {
+            "node": "Trouver les impayes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trouver les impayes": {
+      "main": [
+        [
+          {
+            "node": "Relance Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Indian/Antananarivo"
+  }
+}

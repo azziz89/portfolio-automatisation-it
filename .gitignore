@@ -1,0 +1,5 @@
+.env
+.supervision.env
+tickets-agent.csv
+journal-comptes.log
+__pycache__/

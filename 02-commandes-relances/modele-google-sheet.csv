@@ -1,0 +1,4 @@
+Numero,Date,Client,Telephone,Produit,Quantite,PrixUnitaire,Total,Statut
+CMD-20261101-1001,2026-11-01,Boutique Fictive Tana,034 00 000 01,Riz 50kg,10,150000,1500000,Impaye
+CMD-20261105-1002,2026-11-05,Hotel Exemple,034 00 000 02,Huile 20L,5,90000,450000,Paye
+CMD-20261114-1003,2026-11-14,Garage Test,034 00 000 03,Pneus,4,200000,800000,Impaye

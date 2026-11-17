@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Audit M365 - Client fictif SA</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;max-width:900px;margin:30px auto;color:#222}
+table{border-collapse:collapse;width:100%;margin-bottom:10px}th,td{border:1px solid #ccc;padding:5px 8px;font-size:13px;text-align:left}th{background:#f0f0f0}
+.score{font-size:42px;font-weight:bold}</style></head><body>
+<h1>Audit de securite Microsoft 365</h1>
+<p>Client : <b>Client fictif SA</b> &nbsp;|&nbsp; Date : 17/11/2026 &nbsp;|&nbsp; <b>DONNEES FICTIVES (DEMO)</b></p>
+<p>Score de securite : <span class="score">61 / 100</span> &nbsp; (8 comptes analyses)</p>
+<h2>1. Comptes actifs SANS MFA <span style='background:#c0392b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px'>PRIORITE HAUTE</span></h2><p><b>3</b> element(s). <i>Activer le MFA / acces conditionnel pour tous les utilisateurs.</i></p><table>
+<colgroup><col/><col/></colgroup>
+<tr><th>Nom</th><th>UPN</th></tr>
+<tr><td>Naivo Razafy</td><td>naivo.razafy@exemple.mg</td></tr>
+<tr><td>Lanto Rabe</td><td>lanto.rabe@exemple.mg</td></tr>
+<tr><td>Tiana Rasoa</td><td>tiana.rasoa@exemple.mg</td></tr>
+</table>
+<h2>2. Comptes desactives avec licence <span style='background:#e67e22;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px'>PRIORITE MOYENNE</span></h2><p><b>1</b> element(s). <i>Retirer les licences : economie immediate.</i></p><table>
+<colgroup><col/><col/><col/></colgroup>
+<tr><th>Nom</th><th>UPN</th><th>Licences</th></tr>
+<tr><td>Faly Randria</td><td>faly.randria@exemple.mg</td><td>O365_BUSINESS_PREMIUM</td></tr>
+</table>
+<h2>3. Comptes inactifs depuis plus de 90 jours <span style='background:#e67e22;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px'>PRIORITE MOYENNE</span></h2><p><b>2</b> element(s). <i>Verifier puis desactiver les comptes d'anciens employes.</i></p><table>
+<colgroup><col/><col/><col/></colgroup>
+<tr><th>Nom</th><th>UPN</th><th>DerniereConnexion</th></tr>
+<tr><td>Lanto Rabe</td><td>lanto.rabe@exemple.mg</td><td>30/06/2026 08:10:52</td></tr>
+<tr><td>Tiana Rasoa</td><td>tiana.rasoa@exemple.mg</td><td></td></tr>
+</table>
+<h2>4. Administrateurs globaux <span style='background:#c0392b;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px'>PRIORITE HAUTE</span></h2><p><b>2</b> element(s). <i>Idealement 2 a 4 comptes admin, tous proteges par MFA.</i></p><table>
+<colgroup><col/><col/></colgroup>
+<tr><th>Nom</th><th>UPN</th></tr>
+<tr><td>Rado Rakoto</td><td>rado.rakoto@exemple.mg</td></tr>
+<tr><td>Hery Andria</td><td>hery.andria@exemple.mg</td></tr>
+</table>
+<h2>5. Licences non utilisees <span style='background:#e67e22;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px'>PRIORITE MOYENNE</span></h2><p><b>2</b> element(s). <i>Reduire le nombre de licences achetees.</i></p><table>
+<colgroup><col/><col/><col/><col/></colgroup>
+<tr><th>Licence</th><th>Total</th><th>Utilisees</th><th>Libres</th></tr>
+<tr><td>SPE_E3</td><td>5</td><td>2</td><td>3</td></tr>
+<tr><td>O365_BUSINESS_PREMIUM</td><td>10</td><td>5</td><td>5</td></tr>
+</table>
+<h2>6. Comptes invites (externes) <span style='background:#2980b9;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px'>PRIORITE BASSE</span></h2><p><b>1</b> element(s). <i>Revoir regulierement les acces externes.</i></p><table>
+<colgroup><col/><col/><col/></colgroup>
+<tr><th>Nom</th><th>UPN</th><th>DerniereConnexion</th></tr>
+<tr><td>Consultant Externe</td><td>consultant.externe@exemple.mg</td><td>18/09/2026 08:10:52</td></tr>
+</table>
+<hr><p style="font-size:12px;color:#666">Audit en lecture seule realise avec PowerShell et Microsoft Graph.</p></body></html>

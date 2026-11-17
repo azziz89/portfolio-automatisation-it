@@ -1,0 +1,257 @@
+{
+  "name": "PORTFOLIO 5 - Taches administratives",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Demande interne (DEMO)",
+        "formDescription": "Conge, materiel, acces informatique... Donnees fictives uniquement.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Demandeur",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Type de demande",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Conge"
+                  },
+                  {
+                    "option": "Materiel"
+                  },
+                  {
+                    "option": "Acces informatique"
+                  },
+                  {
+                    "option": "Autre"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Details",
+              "fieldType": "textarea"
+            },
+            {
+              "fieldLabel": "Date souhaitee",
+              "fieldType": "date"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Formulaire de demande",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "e776a6ad-1df7-4fdb-9d43-39c5a57c55a5"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst iso = new Date().toISOString().slice(0, 10);\nconst num = 'DEM-' + iso.replace(/-/g, '') + '-' + String(Math.floor(Math.random() * 9000) + 1000);\nreturn [{ json: {\n  Numero: num, DateDemande: iso, Demandeur: d['Demandeur'], Type: d['Type de demande'],\n  Details: d['Details'] || '', DateSouhaitee: d['Date souhaitee'] || '', Statut: 'En attente'\n} }];"
+      },
+      "name": "Preparer la demande",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "COLLEZ_ID_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Demandes",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "name": "Ajouter dans Demandes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botVOTRE_TOKEN/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"VOTRE_CHAT_ID\", text: '📝 Nouvelle demande ' + $('Preparer la demande').item.json.Numero + '\\nDe : ' + $('Preparer la demande').item.json.Demandeur + '\\nType : ' + $('Preparer la demande').item.json.Type + '\\nDetails : ' + $('Preparer la demande').item.json.Details + '\\nStatut : En attente' }) }}",
+        "options": {}
+      },
+      "name": "Notifier la demande",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "name": "Chaque jour ouvre 08h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "COLLEZ_ID_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Echeances",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire les echeances",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst today = new Date(); today.setHours(0, 0, 0, 0);\nconst late = [], urgent = [], soon = [];\nfor (const r of rows) {\n  if (!r.Element || !r.DateEcheance) continue;\n  if (String(r.Statut || '').toLowerCase().startsWith('fait')) continue;\n  const d = new Date(r.DateEcheance);\n  if (isNaN(d)) continue;\n  const days = Math.round((d - today) / 86400000);\n  const line = '• ' + r.Element + ' - ' + (r.Responsable || '?') + ' - ' + Number(r.Montant || 0).toLocaleString('fr-FR') + ' Ar';\n  if (days < 0) late.push(line + ' (retard ' + (-days) + ' j)');\n  else if (days <= 7) urgent.push(line + ' (dans ' + days + ' j)');\n  else if (days <= 30) soon.push(line + ' (dans ' + days + ' j)');\n}\nconst parts = [];\nif (late.length) parts.push('🔴 EN RETARD\\n' + late.join('\\n'));\nif (urgent.length) parts.push('🟠 URGENT (7 jours)\\n' + urgent.join('\\n'));\nif (soon.length) parts.push('🟡 A PREVOIR (30 jours)\\n' + soon.join('\\n'));\nif (!parts.length) return [];\nreturn [{ json: { message: '📋 Echeances du ' + today.toLocaleDateString('fr-FR') + '\\n\\n' + parts.join('\\n\\n') } }];"
+      },
+      "name": "Calculer les echeances",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botVOTRE_TOKEN/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"VOTRE_CHAT_ID\", text: $json.message }) }}",
+        "options": {}
+      },
+      "name": "Rappel Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Formulaire de demande": {
+      "main": [
+        [
+          {
+            "node": "Preparer la demande",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparer la demande": {
+      "main": [
+        [
+          {
+            "node": "Ajouter dans Demandes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ajouter dans Demandes": {
+      "main": [
+        [
+          {
+            "node": "Notifier la demande",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chaque jour ouvre 08h": {
+      "main": [
+        [
+          {
+            "node": "Lire les echeances",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les echeances": {
+      "main": [
+        [
+          {
+            "node": "Calculer les echeances",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculer les echeances": {
+      "main": [
+        [
+          {
+            "node": "Rappel Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Indian/Antananarivo"
+  }
+}

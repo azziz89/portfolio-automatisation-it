@@ -1,0 +1,151 @@
+{
+  "name": "PORTFOLIO 1 - Supervision et alertes",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "name": "Toutes les 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// === CONFIGURATION : modifiez cette liste avec vos propres cibles ===\nconst TARGETS = [\n  { name: 'Site web (demo)', url: 'https://example.com' },\n  { name: 'Serveur test FICTIF (panne simulee)', url: 'http://127.0.0.1:9' }\n];\nconst FAILS_BEFORE_ALERT = 2; // alerte apres 2 echecs consecutifs (evite les fausses alertes)\n// =====================================================================\nconst fmt = (d) => new Date(d).toLocaleString('fr-FR', { timeZone: 'Indian/Antananarivo' });\nconst state = $getWorkflowStaticData('global');\nstate.targets = state.targets || {};\nconst now = new Date().toISOString();\nconst events = [];\nfor (const t of TARGETS) {\n  const s = state.targets[t.name] || { up: true, fails: 0, since: now, checks: 0, okChecks: 0 };\n  let ok = false;\n  try {\n    await this.helpers.httpRequest({ method: 'GET', url: t.url, timeout: 8000 });\n    ok = true;\n  } catch (e) { ok = false; }\n  s.checks++;\n  if (ok) {\n    s.okChecks++;\n    s.fails = 0;\n    if (!s.up) {\n      events.push({ json: { message: '✅ RETABLI : ' + t.name + '\\nPanne depuis : ' + fmt(s.since) + '\\nRetour : ' + fmt(now) } });\n      s.up = true; s.since = now;\n    }\n  } else {\n    s.fails++;\n    if (s.up && s.fails >= FAILS_BEFORE_ALERT) {\n      s.up = false; s.since = now;\n      events.push({ json: { message: '🚨 PANNE : ' + t.name + '\\nDetectee : ' + fmt(now) + '\\nCible : ' + t.url } });\n    }\n  }\n  state.targets[t.name] = s;\n}\nreturn events;"
+      },
+      "name": "Verifier les cibles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botVOTRE_TOKEN/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"VOTRE_CHAT_ID\", text: $json.message }) }}",
+        "options": {}
+      },
+      "name": "Alerte Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Rapport quotidien 07h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $getWorkflowStaticData('global');\nconst t = state.targets || {};\nconst names = Object.keys(t);\nif (!names.length) return [{ json: { message: '📊 Rapport : aucune donnee (le workflow doit etre ACTIF pour collecter).' } }];\nconst date = new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' });\nlet down = 0;\nconst lines = names.map(n => {\n  const s = t[n];\n  const pct = s.checks ? Math.round(100 * s.okChecks / s.checks) : 0;\n  if (!s.up) down++;\n  return (s.up ? '🟢 ' : '🔴 ') + n + ' : disponibilite ' + pct + ' % (' + s.checks + ' controles)';\n});\nconst head = down === 0 ? '📊 Rapport du ' + date + ' : tout va bien.' : '📊 Rapport du ' + date + ' : ' + down + ' incident(s) a traiter.';\n// remise a zero des compteurs pour la journee suivante\nnames.forEach(n => { t[n].checks = 0; t[n].okChecks = 0; });\nreturn [{ json: { message: head + '\\n\\n' + lines.join('\\n') } }];"
+      },
+      "name": "Construire le rapport",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botVOTRE_TOKEN/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"VOTRE_CHAT_ID\", text: $json.message }) }}",
+        "options": {}
+      },
+      "name": "Rapport Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Toutes les 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Verifier les cibles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifier les cibles": {
+      "main": [
+        [
+          {
+            "node": "Alerte Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rapport quotidien 07h": {
+      "main": [
+        [
+          {
+            "node": "Construire le rapport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construire le rapport": {
+      "main": [
+        [
+          {
+            "node": "Rapport Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Indian/Antananarivo"
+  }
+}

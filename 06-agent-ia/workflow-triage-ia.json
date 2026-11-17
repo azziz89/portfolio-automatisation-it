@@ -1,0 +1,174 @@
+{
+  "name": "PORTFOLIO 6 - Triage IA de tickets",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Ticket informatique (DEMO IA)",
+        "formDescription": "Decrivez votre probleme. Donnees fictives uniquement.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Nom",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Probleme",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Formulaire ticket IT",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "f94be250-7e86-40b7-81b3-f5460c27b9a7"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "VOTRE_CLE_GEMINI"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: \"Tu es un technicien support informatique en PME a Madagascar. Analyse ce ticket et reponds UNIQUEMENT avec un objet JSON ayant exactement ces cles : categorie (Reseau, Messagerie, Poste de travail, Imprimante, Securite, Compte/Acces, Autre), priorite (Basse, Moyenne, Haute, Critique), resume (une phrase), solution_proposee (2 a 3 etapes courtes, concretes, sans risque), escalade (true si Critique ou risque de securite, sinon false). Ne demande jamais de mot de passe. Ticket : \" + $json['Probleme'] }] }], generationConfig: { responseMimeType: \"application/json\", temperature: 0.2 } }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Analyse IA (Gemini)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Lit la reponse de l'IA ; si l'IA echoue, un plan B par regles prend le relais (le workflow ne plante jamais).\nconst form = $('Formulaire ticket IT').item.json;\nconst probleme = String(form['Probleme'] || '');\nconst PRIO = ['Basse', 'Moyenne', 'Haute', 'Critique'];\nconst CAT = ['Reseau', 'Messagerie', 'Poste de travail', 'Imprimante', 'Securite', 'Compte/Acces', 'Autre'];\nlet ia = null, source = 'IA';\ntry {\n  const txt = $json.candidates[0].content.parts[0].text;\n  ia = JSON.parse(txt.replace(/```json|```/g, '').trim());\n} catch (e) { ia = null; }\nif (!ia || !PRIO.includes(ia.priorite)) {\n  source = 'REGLES (IA indisponible)';\n  const p = probleme.toLowerCase();\n  const critique = /virus|ransom|rancon|pirat|hack|vol de|fuite|serveur.*(arret|panne|down)|panne generale/.test(p);\n  ia = { categorie: 'Autre', priorite: critique ? 'Critique' : 'Moyenne',\n         resume: probleme.slice(0, 120), solution_proposee: 'A analyser par un technicien.', escalade: critique };\n}\nif (!CAT.includes(ia.categorie)) ia.categorie = 'Autre';\nconst iso = new Date().toISOString().slice(0, 10);\nconst num = 'TK-' + iso.replace(/-/g, '') + '-' + String(Math.floor(Math.random() * 9000) + 1000);\nconst escalade = (ia.escalade === true || ia.priorite === 'Critique') ? 'Oui' : 'Non';\nreturn { json: { Numero: num, Date: iso, Demandeur: form['Nom'], Probleme: probleme, Categorie: ia.categorie,\n  Priorite: ia.priorite, Resume: ia.resume, SolutionProposee: ia.solution_proposee, Escalade: escalade,\n  Source: source, Statut: 'Ouvert' } };"
+      },
+      "name": "Interpreter la reponse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "COLLEZ_ID_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Tickets",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "name": "Enregistrer le ticket",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botVOTRE_TOKEN/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"VOTRE_CHAT_ID\", text: ($('Interpreter la reponse').item.json.Escalade === 'Oui' ? '🚨 ESCALADE - ' : '🎫 ') + 'Ticket ' + $('Interpreter la reponse').item.json.Numero + ' [' + $('Interpreter la reponse').item.json.Priorite + ']\\nDe : ' + $('Interpreter la reponse').item.json.Demandeur + '\\nCategorie : ' + $('Interpreter la reponse').item.json.Categorie + '\\nResume : ' + $('Interpreter la reponse').item.json.Resume + '\\nSolution proposee : ' + $('Interpreter la reponse').item.json.SolutionProposee + '\\n(Source : ' + $('Interpreter la reponse').item.json.Source + ')' }) }}",
+        "options": {}
+      },
+      "name": "Notifier le technicien",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Formulaire ticket IT": {
+      "main": [
+        [
+          {
+            "node": "Analyse IA (Gemini)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyse IA (Gemini)": {
+      "main": [
+        [
+          {
+            "node": "Interpreter la reponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpreter la reponse": {
+      "main": [
+        [
+          {
+            "node": "Enregistrer le ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enregistrer le ticket": {
+      "main": [
+        [
+          {
+            "node": "Notifier le technicien",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Indian/Antananarivo"
+  }
+}

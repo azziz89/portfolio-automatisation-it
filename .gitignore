@@ -3,3 +3,4 @@
 tickets-agent.csv
 journal-comptes.log
 __pycache__/
+*.save

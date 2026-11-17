@@ -22,4 +22,4 @@ pwsh 03-audit-m365/Audit-M365.ps1 -Demo
 ```
 
 ## Contact
-Odda Azzy LEMAVERANA ESLA : VOTRE_EMAIL_PRO
+Odda Azzy LEMAVERANA ESLA : votre.adresse@exemple.com
